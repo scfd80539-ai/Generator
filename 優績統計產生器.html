@@ -1,0 +1,601 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>優績統計產生器</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--bg:#E9ECEF;--surface:#fff;--ink:#1B2733;--muted:#5B6873;--line:#CDD3D9;--fire:#B3261E;--rescue:#D9601A;--other:#1D5FA0;--warn:#F5C400;--warn-bg:#FFF6CC}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei","Heiti TC",sans-serif;font-size:16px;line-height:1.6;padding-bottom:110px}
+.top{background:var(--ink);color:#fff;position:relative;padding:28px 0 38px}
+.top::after{content:"";position:absolute;left:0;right:0;bottom:0;height:10px;background:repeating-linear-gradient(-45deg,var(--fire) 0 12px,#fff 12px 24px)}
+.top h1{margin:0;font-size:clamp(28px,5vw,40px);font-weight:900;letter-spacing:.04em;line-height:1.2}
+.top p{margin:8px 0 0;color:#C9D1D8;max-width:40em}
+.wrap{max-width:1040px;margin:0 auto;padding:0 20px}
+.step{margin-top:28px}
+.step>h2{font-size:20px;margin:0 0 12px;display:flex;align-items:center;gap:10px}
+.n{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--ink);color:#fff;font-size:15px;font-variant-numeric:tabular-nums;flex:none}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:760px){.grid2{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px}
+.panel h3{margin:0 0 10px;font-size:17px}
+.drop{display:block;border:2px dashed #9AA5AF;border-radius:6px;padding:18px 12px;text-align:center;cursor:pointer;background:#F7F8F9}
+.drop:hover,.drop.over{border-color:var(--ink);background:#fff}
+.drop strong{display:block}
+.drop small{color:var(--muted);display:block;margin-top:2px}
+.drop input{position:absolute;opacity:0;width:1px;height:1px}
+.drop:focus-within{outline:3px solid var(--warn);outline-offset:2px}
+.status{margin:10px 0 0;font-size:15px}
+.status.err,.err{color:var(--fire)}
+.muted{color:var(--muted)}
+input[type=text],textarea{font:inherit;border:1px solid var(--line);border-radius:4px;padding:6px 8px;width:100%;background:#fff;color:var(--ink)}
+textarea{min-height:110px;font-size:14px}
+.btn{font:inherit;font-size:15px;border-radius:6px;padding:7px 14px;border:1px solid var(--ink);background:#fff;color:var(--ink);cursor:pointer;white-space:nowrap}
+.btn:hover{background:#F1F3F5}
+.btn.primary{background:var(--fire);border-color:var(--fire);color:#fff}
+.btn.primary:hover{background:#951F18}
+.btn.light{border-color:#fff;background:transparent;color:#fff}
+.btn.light:hover{background:rgba(255,255,255,.12)}
+.btn.small{font-size:14px;padding:4px 10px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--warn);outline-offset:2px}
+details summary{cursor:pointer;color:var(--muted);font-size:15px;margin-top:10px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
+.filelist{list-style:none;padding:0;margin:10px 0 0;font-size:15px}
+.filelist li{padding:4px 0;border-top:1px solid #EEF0F2}
+table.mini{border-collapse:collapse;width:100%;font-size:14px;margin-top:8px}
+table.mini th,table.mini td{border-bottom:1px solid #EEF0F2;padding:4px 6px;text-align:left;vertical-align:top}
+table.mini th{color:var(--muted);font-weight:500}
+.scroll{max-height:320px;overflow:auto}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.toolbar .sum{flex:1;min-width:14em}
+.empty{background:var(--surface);border:1px dashed var(--line);border-radius:6px;padding:28px;text-align:center;color:var(--muted)}
+.inc{background:var(--surface);border:1px solid var(--line);border-left:6px solid var(--tc);border-radius:4px;padding:12px 14px;margin-bottom:10px}
+.inc.off{background:#F4F5F6}
+.inc-h{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.inc-check{display:flex;align-items:center;gap:6px;font-weight:700;cursor:pointer}
+.inc-check input{width:20px;height:20px;accent-color:var(--ink)}
+.inc-type{color:var(--tc);font-weight:900}
+.inc-date{font-variant-numeric:tabular-nums}
+.inc-place-s{color:var(--muted);flex:1;min-width:8em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.inc:not(.off) .inc-place-s{display:none}
+.inc-count{margin-left:auto}
+.inc-count{color:var(--muted);font-variant-numeric:tabular-nums}
+.inc.off .inc-body{display:none}
+.fields{display:grid;grid-template-columns:3fr 1fr 1.3fr;gap:8px;margin-top:10px}
+@media(max-width:640px){.fields{grid-template-columns:1fr 1fr}.f-place{grid-column:1/-1}}
+.f{font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:2px}
+.f input{font-size:15px}
+.reason{margin:10px 0 0;padding:8px 10px;background:#F4F6F8;border-radius:4px;font-size:15px}
+.hint{background:var(--warn-bg);border-left:4px solid var(--warn);padding:5px 10px;margin:8px 0 0;font-size:14px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chip{font:inherit;font-size:15px;display:inline-flex;gap:6px;align-items:baseline;border:1px solid var(--line);background:#fff;color:var(--muted);border-radius:999px;padding:3px 12px;cursor:pointer;text-decoration:line-through}
+.chip .tg{font-size:12px}
+.chip.on{background:var(--ink);border-color:var(--ink);color:#fff;text-decoration:none}
+.chip.miss{border:1px dashed #B08900;background:var(--warn-bg);color:#6B5400}
+.chip.miss.on{background:#6B5400;color:#fff;border-style:solid}
+.raw pre{white-space:pre-wrap;font:inherit;font-size:14px;margin:6px 0 0;color:var(--muted)}
+.settings{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media(max-width:640px){.settings{grid-template-columns:1fr 1fr}}
+.settings label{font-size:14px;color:var(--muted);display:flex;flex-direction:column;gap:2px}
+.check{display:flex;gap:8px;align-items:center;margin-top:12px;font-size:15px}
+.bar{position:fixed;left:0;right:0;bottom:0;background:var(--ink);color:#fff;padding:12px 0;z-index:5}
+.bar .wrap{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.bar .sum{flex:1;min-width:12em}
+.bar .sum b{font-size:22px;font-variant-numeric:tabular-nums}
+.bar .warnline{display:block;color:#FFD84D;font-size:13px}
+.banner{background:var(--warn-bg);border:1px solid var(--warn);padding:10px 14px;border-radius:6px;margin-top:20px;display:none}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <h1>優績統計產生器</h1>
+    <p>上傳人員名冊和勤務紀錄，勾選要列入的勤務，就能下載優績統計 Excel。所有檔案只在這台電腦的瀏覽器裡處理，不會上傳到任何地方。</p>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="banner" id="libBanner">Excel 元件沒有載入，目前無法讀取 .xlsx／.xls 或匯出檔案。請確認電腦能連上網路後重新整理頁面。</div>
+
+  <section class="step">
+    <h2><span class="n">1</span>上傳名冊和勤務紀錄</h2>
+    <div class="grid2">
+      <div class="panel">
+        <h3>人員名冊</h3>
+        <label class="drop" id="rosterDrop">
+          <input type="file" id="rosterFile" accept=".xls,.xlsx,.csv,.txt">
+          <strong>選擇名冊檔案，或拖曳到這裡</strong>
+          <small>需要有身分證字號、職稱、姓名。以前的優績統計檔也可以直接用。</small>
+        </label>
+        <details>
+          <summary>或從 Excel 複製貼上</summary>
+          <textarea id="rosterPaste" placeholder="每行一人：身分證字號　職稱　姓名"></textarea>
+          <div class="row"><button class="btn small" id="rosterPasteBtn" type="button">載入貼上的名冊</button></div>
+        </details>
+        <p class="status muted" id="rosterStatus">還沒有名冊。</p>
+        <details id="rosterDetails" hidden>
+          <summary>查看名冊</summary>
+          <div class="scroll"><table class="mini" id="rosterTable"></table></div>
+        </details>
+        <div class="row"><button class="btn small" id="rosterClear" type="button" hidden>清除名冊</button></div>
+      </div>
+
+      <div class="panel">
+        <h3>勤務紀錄</h3>
+        <label class="drop" id="dutyDrop">
+          <input type="file" id="dutyFile" accept=".xls,.xlsx,.htm,.html" multiple>
+          <strong>選擇火警、緊急救援等紀錄，或拖曳到這裡</strong>
+          <small>可以一次選多個檔案，同一筆勤務重複上傳會自動略過。</small>
+        </label>
+        <ul class="filelist" id="fileList"></ul>
+        <div class="row"><button class="btn small" id="dutyClear" type="button" hidden>清除勤務紀錄</button></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="step">
+    <h2><span class="n">2</span>確認要列入的勤務和人員</h2>
+    <div class="toolbar" id="toolbar" hidden>
+      <span class="sum" id="listSum"></span>
+      <button class="btn small" type="button" id="allOn">全部列入</button>
+      <button class="btn small" type="button" id="allOff">全部不列入</button>
+    </div>
+    <p class="muted" id="listHelp" hidden style="margin:0 0 10px;font-size:14px">點人名可以切換要不要列入。黃色虛線的人名在名冊裡找不到，預設不列入。</p>
+    <div id="incList"><div class="empty">上傳勤務紀錄後，勤務會依時間排在這裡。</div></div>
+  </section>
+
+  <section class="step">
+    <h2><span class="n">3</span>匯出設定</h2>
+    <div class="panel">
+      <div class="settings">
+        <label>單位名稱（用於檔名）<input type="text" id="sUnit" placeholder="例：三重分隊"></label>
+        <label>承辦人<input type="text" id="sClerk" list="clerkList" placeholder="輸入姓名"></label>
+        <label>日期欄<input type="text" id="sDate" placeholder="例：2026/9/30"></label>
+        <label>代碼<input type="text" id="sCode" value="AD01"></label>
+        <label>獎度<input type="text" id="sGrade" value="優"></label>
+        <label>次數<input type="text" id="sCount" value="1" inputmode="numeric"></label>
+      </div>
+      <datalist id="clerkList"></datalist>
+      <label class="check"><input type="checkbox" id="sAttach" checked> 把人員名冊附在「工作表2」（和原本的優績統計檔一樣）</label>
+      <details>
+        <summary>修改事由格式</summary>
+        <p class="muted" style="font-size:14px;margin:6px 0">可以使用 {日期}、{地點}、{類型}、{細項}。</p>
+        <input type="text" id="sTemplate" value="{日期}執行{地點}{類型}{細項}勤務，工作辛勞得力。">
+      </details>
+      <details id="previewDetails">
+        <summary>預覽匯出內容</summary>
+        <div class="scroll"><table class="mini" id="previewTable"></table></div>
+      </details>
+    </div>
+  </section>
+</main>
+
+<div class="bar">
+  <div class="wrap">
+    <span class="sum" id="barSum">將匯出 <b>0</b> 列</span>
+    <button class="btn primary" type="button" id="dlXls" disabled>下載 .xls</button>
+    <button class="btn light" type="button" id="dlXlsx" disabled>下載 .xlsx</button>
+  </div>
+</div>
+
+<script>
+/*CORE-START*/
+var ID_RE = /^[A-Z][12A-D89]\d{8}$/;
+var TITLE_RE = /(隊長|隊員|技士|技正|技佐|科員|專員|主任|組長|課長|替代役|役男|約僱|約聘|工友|技工|駕駛|救護員)$/;
+var SUB_KEYWORDS = ['瓦斯外洩','汽油外洩','油料外洩','化學物質外洩','跳水','落水','溺水','電梯受困','受困','墜樓','山難'];
+var EXCLUDE_KEYWORDS = ['中途取消','誤報','燒金紙','無異狀','未發現'];
+
+function norm(v){ return String(v == null ? '' : v).replace(/\u00a0/g,' ').replace(/\r\n?/g,'\n'); }
+
+function rosterFromSheets(sheets){
+  var people = [], seen = {};
+  function add(id, title, name){
+    id = norm(id).trim().toUpperCase(); name = norm(name).replace(/\s+/g,''); title = norm(title).trim();
+    if (!ID_RE.test(id) || !name || seen[id]) return;
+    seen[id] = 1; people.push({id:id, title:title, name:name, idx:people.length});
+  }
+  // 先找有標題列的工作表
+  var usedHeader = false;
+  sheets.forEach(function(rows){
+    for (var i = 0; i < Math.min(rows.length, 30); i++){
+      var r = (rows[i] || []).map(function(c){ return norm(c).trim(); });
+      var ci = r.findIndex(function(c){ return c.indexOf('身分證') >= 0; });
+      var cn = r.findIndex(function(c){ return c === '姓名'; });
+      var ct = r.findIndex(function(c){ return c.indexOf('職稱') >= 0; });
+      if (ci >= 0 && cn >= 0){
+        usedHeader = true;
+        for (var j = i + 1; j < rows.length; j++){
+          var row = rows[j] || [];
+          add(row[ci], ct >= 0 ? row[ct] : '', row[cn]);
+        }
+        return;
+      }
+    }
+  });
+  if (usedHeader && people.length) return people;
+  // 沒有標題列：用身分證格式判斷
+  sheets.forEach(function(rows){
+    rows.forEach(function(row){
+      var cells = (row || []).map(function(c){ return norm(c).trim(); });
+      var idi = cells.findIndex(function(c){ return ID_RE.test(c.toUpperCase()); });
+      if (idi < 0) return;
+      var others = cells.filter(function(c, k){ return k !== idi && c; });
+      var title = others.find(function(c){ return c.length <= 6 && TITLE_RE.test(c); }) || '';
+      var name = others.find(function(c){ return c !== title && /^[\u3400-\u9fff]{2,5}$/.test(c); })
+              || others.find(function(c){ return c !== title && c.length <= 12; }) || '';
+      add(cells[idi], title, name);
+    });
+  });
+  return people;
+}
+
+function rowsFromPaste(text){
+  return norm(text).split('\n').map(function(l){ return l.trim().split(/\t|,|，|\s+/); });
+}
+
+function parseDateTime(s){
+  s = norm(s);
+  var m = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2}))?/);
+  if (m) return {y:+m[3], m:+m[1], d:+m[2], time: m[4] ? pad(m[4]) + ':' + m[5] : ''};
+  m = s.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})(?:\s+(\d{1,2}):(\d{2}))?/);
+  if (m) return {y:+m[1], m:+m[2], d:+m[3], time: m[4] ? pad(m[4]) + ':' + m[5] : ''};
+  return null;
+}
+function pad(x){ x = String(x); return x.length < 2 ? '0' + x : x; }
+
+function stripPrefix(s){ return norm(s).replace(/^\s*(\d+\.\s*:?\s*)+/, ''); }
+function cleanPlace(s){ return stripPrefix(s).replace(/\s+/g,'').replace(/(\d)[;；]/g,'$1 ').replace(/[;；]/g,''); }
+function cleanContent(s){ return stripPrefix(s).replace(/[ \t]{3,}/g,'\n').replace(/\n{2,}/g,'\n').trim(); }
+function parseNames(s){
+  return norm(s).replace(/\d+\.\s*:?/g, ',').split(/[,，、;；\n]+/)
+    .map(function(t){ return t.replace(/\s+/g,''); })
+    .filter(function(t){ return t && t.length <= 12; });
+}
+function parseType(item, fileName){
+  var m = norm(item).match(/勤務\s*[-－]\s*([^\s]+)/);
+  if (m) return m[1];
+  var src = norm(item) + ' ' + (fileName || '');
+  if (src.indexOf('火警') >= 0) return '火警';
+  if (src.indexOf('緊急救援') >= 0) return '緊急救援';
+  return '';
+}
+function hasCity(p){ return /^[\u4e00-\u9fff]{2}[市縣]/.test(p); }
+function districtOf(p){ var m = p.match(/^([\u4e00-\u9fff]{2}[市縣][\u4e00-\u9fff]{1,3}?[區鎮鄉市])/); return m ? m[1] : ''; }
+
+function parseDutySheets(sheets, fileName){
+  var list = [];
+  sheets.forEach(function(rows){
+    var hi = -1, header = null;
+    for (var i = 0; i < Math.min(rows.length, 20); i++){
+      var r = (rows[i] || []).map(function(c){ return norm(c).trim(); });
+      if (r.indexOf('值勤人員') >= 0 && r.some(function(c){ return c.indexOf('勤務時間') >= 0; })){ hi = i; header = r; break; }
+    }
+    if (hi < 0) return;
+    function col(name){ var k = header.indexOf(name); return k >= 0 ? k : header.findIndex(function(c){ return c.indexOf(name) >= 0; }); }
+    var c = {time:col('勤務時間'), place:col('地點'), item:col('勤務項目'), staff:col('值勤人員'), content:col('工作內容'), typed:col('登打日期')};
+    for (var r = hi + 1; r < rows.length; r++){
+      var row = rows[r] || [];
+      var g = function(k){ return c[k] >= 0 ? norm(row[c[k]]) : ''; };
+      var names = parseNames(g('staff'));
+      var dt = parseDateTime(g('time')) || parseDateTime(g('typed'));
+      if (!names.length || !dt) continue;
+      var type = parseType(g('item'), fileName);
+      var place = cleanPlace(g('place'));
+      var content = cleanContent(g('content'));
+      var excl = EXCLUDE_KEYWORDS.find(function(k){ return content.indexOf(k) >= 0; }) || '';
+      var sub = type === '火警' ? '' : (SUB_KEYWORDS.find(function(k){ return content.indexOf(k) >= 0; }) || '');
+      var seenN = {}; names = names.filter(function(n){ if (seenN[n]) return false; seenN[n] = 1; return true; });
+      list.push({
+        key: [dt.y, dt.m, dt.d, dt.time, place, type].join('|'),
+        y: dt.y, m: dt.m, d: dt.d, time: dt.time,
+        rawPlace: place, place: place, prefixed: '', type: type, sub: sub, content: content,
+        excludeReason: excl, include: !excl,
+        names: names, overrides: {}, source: fileName || ''
+      });
+    }
+  });
+  return list;
+}
+
+function applyDistrictPrefix(all){
+  var count = {};
+  all.forEach(function(inc){ var d = districtOf(inc.rawPlace); if (d) count[d] = (count[d] || 0) + 1; });
+  var best = Object.keys(count).sort(function(a, b){ return count[b] - count[a]; })[0] || '';
+  if (!best) return;
+  all.forEach(function(inc){
+    if (inc.prefixChecked) return;
+    inc.prefixChecked = true;
+    if (inc.place && !hasCity(inc.place)){ inc.place = best + inc.place; inc.prefixed = best; }
+  });
+}
+
+function matchPeople(inc, roster){
+  var byName = {};
+  roster.forEach(function(p){ (byName[p.name] = byName[p.name] || []).push(p); });
+  return inc.names.map(function(n){
+    var recs = byName[n] || [];
+    var rec = recs[0] || null;
+    var ov = inc.overrides[n];
+    return {name:n, rec:rec, dup: recs.length > 1, include: ov === undefined ? !!rec : ov};
+  }).sort(function(a, b){ return (a.rec ? a.rec.idx : 1e9) - (b.rec ? b.rec.idx : 1e9); });
+}
+
+function rocDate(inc){ return (inc.y - 1911) + '年' + inc.m + '月' + inc.d + '日'; }
+function buildReason(tpl, inc){
+  return tpl.replace(/\{日期\}/g, rocDate(inc)).replace(/\{地點\}/g, inc.place)
+            .replace(/\{類型\}/g, inc.type).replace(/\{細項\}/g, inc.sub);
+}
+
+function buildRows(incidents, roster, s){
+  var rows = [];
+  incidents.forEach(function(inc){
+    if (!inc.include) return;
+    var reason = buildReason(s.template, inc);
+    matchPeople(inc, roster).forEach(function(p){
+      if (!p.include) return;
+      var cnt = Number(s.count); 
+      rows.push([p.rec ? p.rec.id : '', p.rec ? p.rec.title : '', p.name, reason, s.code, s.grade, isNaN(cnt) || s.count === '' ? s.count : cnt, s.date, s.clerk]);
+    });
+  });
+  return rows;
+}
+
+function sortIncidents(list){
+  list.sort(function(a, b){ return (a.y - b.y) || (a.m - b.m) || (a.d - b.d) || (a.time < b.time ? -1 : a.time > b.time ? 1 : 0); });
+}
+
+function defaultMonthEnd(incidents){
+  var cnt = {};
+  incidents.forEach(function(i){ var k = i.y + '/' + i.m; cnt[k] = (cnt[k] || 0) + 1; });
+  var best = Object.keys(cnt).sort(function(a, b){ return cnt[b] - cnt[a]; })[0];
+  if (!best) return null;
+  var p = best.split('/'), y = +p[0], m = +p[1];
+  return {y:y, m:m, text: y + '/' + m + '/' + new Date(y, m, 0).getDate()};
+}
+/*CORE-END*/
+</script>
+
+<script>
+(function(){
+  var state = { roster: [], incidents: [], files: [], dateDirty: false };
+  var $ = function(id){ return document.getElementById(id); };
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function typeColor(t){ return t === '火警' ? 'var(--fire)' : t === '緊急救援' ? 'var(--rescue)' : 'var(--other)'; }
+
+  window.addEventListener('load', function(){ if (!window.XLSX) $('libBanner').style.display = 'block'; });
+
+  // ---------- 讀檔 ----------
+  async function readTable(file){
+    var u8 = new Uint8Array(await file.arrayBuffer());
+    var isZip = u8[0] === 0x50 && u8[1] === 0x4B, isOle = u8[0] === 0xD0 && u8[1] === 0xCF;
+    if (!isZip && !isOle){
+      var text = new TextDecoder('utf-8').decode(u8);
+      var cs = (text.slice(0, 3000).match(/charset=["']?([\w-]+)/i) || [])[1];
+      if (cs && !/utf-?8/i.test(cs)){ try { text = new TextDecoder(cs.toLowerCase()).decode(u8); } catch(e){} }
+      else if (!cs && text.indexOf('\uFFFD') >= 0){ try { text = new TextDecoder('big5').decode(u8); } catch(e){} }
+      if (/<table/i.test(text)){
+        var doc = new DOMParser().parseFromString(text, 'text/html');
+        doc.querySelectorAll('br').forEach(function(b){ b.replaceWith('\n'); });
+        return Array.from(doc.querySelectorAll('table')).map(function(t){
+          return Array.from(t.rows).map(function(tr){ return Array.from(tr.cells).map(function(td){ return td.textContent; }); });
+        });
+      }
+      return [text.split(/\r?\n/).map(function(l){ return l.split(l.indexOf('\t') >= 0 ? '\t' : ','); })];
+    }
+    if (!window.XLSX) throw new Error('Excel 元件沒有載入，請確認網路連線後重新整理');
+    var wb = XLSX.read(u8, {type:'array'});
+    return wb.SheetNames.map(function(n){ return XLSX.utils.sheet_to_json(wb.Sheets[n], {header:1, raw:false, defval:'', dateNF:'yyyy/mm/dd hh:mm'}); });
+  }
+
+  // ---------- 名冊 ----------
+  function setRoster(people, sourceLabel){
+    if (!people.length){
+      $('rosterStatus').textContent = sourceLabel + '裡找不到身分證字號。請確認有身分證字號、職稱、姓名三欄。';
+      $('rosterStatus').className = 'status err';
+      return;
+    }
+    state.roster = people;
+    renderRoster();
+    renderAll();
+  }
+  function renderRoster(){
+    var r = state.roster;
+    if (!r.length){
+      $('rosterStatus').textContent = '還沒有名冊。'; $('rosterStatus').className = 'status muted';
+      $('rosterDetails').hidden = true; $('rosterClear').hidden = true; $('clerkList').innerHTML = '';
+      return;
+    }
+    var byTitle = {};
+    r.forEach(function(p){ var t = p.title || '未填職稱'; byTitle[t] = (byTitle[t] || 0) + 1; });
+    $('rosterStatus').textContent = '已載入 ' + r.length + ' 人（' + Object.keys(byTitle).map(function(t){ return t + ' ' + byTitle[t]; }).join('、') + '）';
+    $('rosterStatus').className = 'status';
+    $('rosterTable').innerHTML = '<tr><th>姓名</th><th>職稱</th><th>身分證字號</th></tr>' +
+      r.map(function(p){ return '<tr><td>' + esc(p.name) + '</td><td>' + esc(p.title) + '</td><td>' + esc(p.id) + '</td></tr>'; }).join('');
+    $('rosterDetails').hidden = false; $('rosterClear').hidden = false;
+    $('clerkList').innerHTML = r.map(function(p){ return '<option value="' + esc(p.name) + '">'; }).join('');
+  }
+  async function loadRosterFile(file){
+    try { setRoster(rosterFromSheets(await readTable(file)), '「' + file.name + '」'); }
+    catch(e){ $('rosterStatus').textContent = '「' + file.name + '」讀取失敗：' + e.message; $('rosterStatus').className = 'status err'; }
+  }
+  $('rosterFile').addEventListener('change', function(e){ if (e.target.files[0]) loadRosterFile(e.target.files[0]); e.target.value = ''; });
+  $('rosterPasteBtn').addEventListener('click', function(){ setRoster(rosterFromSheets([rowsFromPaste($('rosterPaste').value)]), '貼上的內容'); });
+  $('rosterClear').addEventListener('click', function(){ state.roster = []; renderRoster(); renderAll(); });
+
+  // ---------- 勤務紀錄 ----------
+  async function loadDutyFiles(files){
+    var keys = {};
+    state.incidents.forEach(function(i){ keys[i.key] = 1; });
+    for (var f of Array.from(files)){
+      try {
+        var list = parseDutySheets(await readTable(f), f.name);
+        if (!list.length){ state.files.push({name:f.name, err:'找不到「值勤人員」和「勤務時間」欄位，請確認是勤務系統匯出的檔案'}); continue; }
+        var added = 0, dup = 0;
+        list.forEach(function(inc){ if (keys[inc.key]){ dup++; return; } keys[inc.key] = 1; state.incidents.push(inc); added++; });
+        state.files.push({name:f.name, added:added, dup:dup});
+      } catch(e){ state.files.push({name:f.name, err:'讀取失敗：' + e.message}); }
+    }
+    applyDistrictPrefix(state.incidents);
+    sortIncidents(state.incidents);
+    if (!state.dateDirty){ var d = defaultMonthEnd(state.incidents); if (d) $('sDate').value = d.text; }
+    renderFiles(); renderAll();
+  }
+  function renderFiles(){
+    $('fileList').innerHTML = state.files.map(function(f){
+      return '<li>' + esc(f.name) + '：' + (f.err ? '<span class="err">' + esc(f.err) + '</span>'
+        : f.added + ' 筆' + (f.dup ? '<span class="muted">（' + f.dup + ' 筆重複已略過）</span>' : '')) + '</li>';
+    }).join('');
+    $('dutyClear').hidden = !state.files.length;
+  }
+  $('dutyFile').addEventListener('change', function(e){ if (e.target.files.length) loadDutyFiles(e.target.files); e.target.value = ''; });
+  $('dutyClear').addEventListener('click', function(){ state.incidents = []; state.files = []; renderFiles(); renderAll(); });
+
+  [['rosterDrop', function(fs){ loadRosterFile(fs[0]); }], ['dutyDrop', loadDutyFiles]].forEach(function(p){
+    var el = $(p[0]);
+    el.addEventListener('dragover', function(e){ e.preventDefault(); el.classList.add('over'); });
+    el.addEventListener('dragleave', function(){ el.classList.remove('over'); });
+    el.addEventListener('drop', function(e){ e.preventDefault(); el.classList.remove('over'); if (e.dataTransfer.files.length) p[1](e.dataTransfer.files); });
+  });
+
+  // ---------- 設定 ----------
+  function settings(){
+    return { unit:$('sUnit').value.trim(), clerk:$('sClerk').value.trim(), date:$('sDate').value.trim(),
+      code:$('sCode').value.trim(), grade:$('sGrade').value.trim(), count:$('sCount').value.trim(),
+      template:$('sTemplate').value, attach:$('sAttach').checked };
+  }
+  ['sUnit','sClerk','sCode','sGrade','sCount','sAttach'].forEach(function(id){ $(id).addEventListener('input', renderSummary); });
+  $('sDate').addEventListener('input', function(){ state.dateDirty = true; renderSummary(); });
+  $('sTemplate').addEventListener('input', function(){
+    document.querySelectorAll('.inc').forEach(function(el){ updateReason(+el.dataset.i); });
+    renderSummary();
+  });
+
+  // ---------- 勤務列表 ----------
+  function chipHTML(p){
+    var tag = p.rec ? (p.rec.title || '') + (p.dup ? '・同名' : '') : '名冊查無';
+    return '<button type="button" class="chip' + (p.include ? ' on' : '') + (p.rec ? '' : ' miss') + '" data-name="' + esc(p.name) +
+      '" aria-pressed="' + p.include + '"><span class="nm">' + esc(p.name) + '</span><span class="tg">' + esc(tag) + '</span></button>';
+  }
+  function cardHTML(inc, i){
+    var people = matchPeople(inc, state.roster);
+    var nIn = people.filter(function(p){ return p.include; }).length;
+    return '<article class="inc' + (inc.include ? '' : ' off') + '" data-i="' + i + '" style="--tc:' + typeColor(inc.type) + '">' +
+      '<div class="inc-h">' +
+        '<label class="inc-check"><input type="checkbox" data-act="inc"' + (inc.include ? ' checked' : '') + '>列入</label>' +
+        '<span class="inc-type">' + esc(inc.type || '未分類') + '</span>' +
+        '<span class="inc-date">' + inc.m + '/' + inc.d + ' ' + esc(inc.time) + '</span>' +
+        '<span class="inc-place-s">' + esc(inc.place) + '</span>' +
+        '<span class="inc-count">' + nIn + ' 人</span>' +
+      '</div>' +
+      (inc.excludeReason ? '<p class="hint">工作內容有「' + esc(inc.excludeReason) + '」，預設不列入。</p>' : '') +
+      '<div class="inc-body">' +
+        '<div class="fields">' +
+          '<label class="f f-place">地點<input type="text" data-f="place" value="' + esc(inc.place) + '"></label>' +
+          '<label class="f">勤務類型<input type="text" data-f="type" value="' + esc(inc.type) + '"></label>' +
+          '<label class="f">細項<input type="text" data-f="sub" value="' + esc(inc.sub) + '" placeholder="例：瓦斯外洩"></label>' +
+        '</div>' +
+        (inc.prefixed ? '<p class="hint">原始地點沒寫行政區，已自動補上「' + esc(inc.prefixed) + '」，請確認是否正確。</p>' : '') +
+        '<p class="reason" data-reason>' + esc(buildReason($('sTemplate').value, inc)) + '</p>' +
+        '<div class="chips">' + people.map(chipHTML).join('') + '</div>' +
+        '<details class="raw"><summary>原始工作內容</summary><pre>' + esc(inc.content || '（空白）') + '</pre></details>' +
+      '</div></article>';
+  }
+  function renderList(){
+    var box = $('incList');
+    if (!state.incidents.length){
+      box.innerHTML = '<div class="empty">上傳勤務紀錄後，勤務會依時間排在這裡。</div>';
+      $('toolbar').hidden = true; $('listHelp').hidden = true; return;
+    }
+    box.innerHTML = state.incidents.map(cardHTML).join('');
+    $('toolbar').hidden = false; $('listHelp').hidden = false;
+  }
+  function rerenderCard(i, focusSel){
+    var el = $('incList').querySelector('.inc[data-i="' + i + '"]');
+    if (!el) return;
+    var tmp = document.createElement('div'); tmp.innerHTML = cardHTML(state.incidents[i], i);
+    var fresh = tmp.firstChild; el.replaceWith(fresh);
+    if (focusSel){ var f = fresh.querySelector(focusSel); if (f) f.focus(); }
+  }
+  function updateReason(i){
+    var el = $('incList').querySelector('.inc[data-i="' + i + '"]'); if (!el) return;
+    var inc = state.incidents[i];
+    el.querySelector('[data-reason]').textContent = buildReason($('sTemplate').value, inc);
+    el.querySelector('.inc-place-s').textContent = inc.place;
+    el.querySelector('.inc-type').textContent = inc.type || '未分類';
+  }
+  $('incList').addEventListener('change', function(e){
+    var card = e.target.closest('.inc'); if (!card || e.target.dataset.act !== 'inc') return;
+    var i = +card.dataset.i; state.incidents[i].include = e.target.checked;
+    rerenderCard(i, 'input[data-act="inc"]'); renderSummary();
+  });
+  $('incList').addEventListener('click', function(e){
+    var chip = e.target.closest('.chip'); if (!chip) return;
+    var i = +chip.closest('.inc').dataset.i, inc = state.incidents[i], name = chip.dataset.name;
+    var cur = matchPeople(inc, state.roster).find(function(p){ return p.name === name; });
+    inc.overrides[name] = !cur.include;
+    rerenderCard(i, '.chip[data-name="' + CSS.escape(name) + '"]'); renderSummary();
+  });
+  $('incList').addEventListener('input', function(e){
+    var f = e.target.dataset.f; if (!f) return;
+    var i = +e.target.closest('.inc').dataset.i;
+    state.incidents[i][f] = e.target.value.trim();
+    updateReason(i); renderSummary();
+  });
+  function setAll(v){ state.incidents.forEach(function(inc){ inc.include = v; }); renderList(); renderSummary(); }
+  $('allOn').addEventListener('click', function(){ setAll(true); });
+  $('allOff').addEventListener('click', function(){ setAll(false); });
+
+  // ---------- 統計與預覽 ----------
+  function renderSummary(){
+    var s = settings(), rows = buildRows(state.incidents, state.roster, s);
+    var n = state.incidents.length, k = state.incidents.filter(function(i){ return i.include; }).length;
+    $('listSum').textContent = '共 ' + n + ' 筆勤務，已列入 ' + k + ' 筆';
+    var noId = rows.filter(function(r){ return !r[0]; }).length;
+    var warns = [];
+    if (!state.roster.length && n) warns.push('還沒有上傳名冊，人員都對不到');
+    if (noId) warns.push(noId + ' 列沒有身分證字號');
+    if (rows.length && !s.clerk) warns.push('承辦人還沒填');
+    $('barSum').innerHTML = '將匯出 <b>' + rows.length + '</b> 列' + (warns.length ? '<span class="warnline">' + esc(warns.join('；')) + '</span>' : '');
+    $('dlXls').disabled = $('dlXlsx').disabled = !rows.length;
+    $('previewTable').innerHTML = rows.length
+      ? '<tr><th>身分證字號</th><th>職稱</th><th>姓名</th><th>事由</th><th>代碼</th><th>獎度</th><th>次數</th><th>日期</th><th>承辦人</th></tr>' +
+        rows.map(function(r){ return '<tr>' + r.map(function(c){ return '<td>' + esc(c) + '</td>'; }).join('') + '</tr>'; }).join('')
+      : '<tr><td class="muted">目前沒有要匯出的資料。</td></tr>';
+  }
+  function renderAll(){ renderList(); renderSummary(); }
+
+  // ---------- 匯出 ----------
+  function exportFile(ext){
+    if (!window.XLSX){ alert('Excel 元件沒有載入，請確認網路連線後重新整理頁面。'); return; }
+    var s = settings(), rows = buildRows(state.incidents, state.roster, s);
+    if (!rows.length) return;
+    var ws = XLSX.utils.aoa_to_sheet(rows);
+    rows.forEach(function(r, i){
+      [0, 7].forEach(function(c){ var a = XLSX.utils.encode_cell({r:i, c:c}); if (ws[a]){ ws[a].t = 's'; ws[a].v = String(ws[a].v); ws[a].z = '@'; } });
+    });
+    ws['!cols'] = [{wch:12},{wch:7},{wch:8},{wch:62},{wch:6},{wch:5},{wch:5},{wch:11},{wch:9}];
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '工作表1');
+    if (s.attach && state.roster.length){
+      var ws2 = XLSX.utils.aoa_to_sheet([['', '身分證字號', '職稱', '姓名']].concat(state.roster.map(function(p){ return ['', p.id, p.title, p.name]; })));
+      ws2['!cols'] = [{wch:3},{wch:12},{wch:8},{wch:8}];
+      XLSX.utils.book_append_sheet(wb, ws2, '工作表2');
+    }
+    var inc = state.incidents.find(function(i){ return i.include; });
+    var dm = s.date.match(/(\d{4})\D+(\d{1,2})/);
+    var y = dm ? +dm[1] : inc.y, m = dm ? +dm[2] : inc.m;
+    var name = (s.unit || '') + '優績統計' + (y - 1911) + '_' + m + '.' + ext;
+    XLSX.writeFile(wb, name, {bookType: ext === 'xls' ? 'biff8' : 'xlsx'});
+  }
+  $('dlXls').addEventListener('click', function(){ exportFile('xls'); });
+  $('dlXlsx').addEventListener('click', function(){ exportFile('xlsx'); });
+
+  renderAll();
+})();
+</script>
+</body>
+</html>
